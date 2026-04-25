@@ -58,7 +58,8 @@ include 'includes/head.php';
 
 <!-- State dari PHP session → JS -->
 <script>
-const currentRole = <?= json_encode($role) ?>;
+const currentRole    = <?= json_encode($role) ?>;
+const currentName    = <?= json_encode($userName) ?>;
 </script>
 
 <!-- Data dummy -->

@@ -6,15 +6,45 @@ if (!empty($_SESSION['role'])) {
     exit;
 }
 
-$flashSuccess = $_SESSION['flash_success'] ?? '';
-unset($_SESSION['flash_success']);
-
-// Proses form register (tanpa DB — hanya tampilkan pesan sukses)
+// Proses form register (simpan ke session — tanpa DB)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $_SESSION['flash_success'] = 'Pendaftaran berhasil! Silakan login.';
+    $email    = trim($_POST['email'] ?? '');
+    $password = $_POST['password'] ?? '';
+    $nama     = trim($_POST['nama'] ?? '');
+    $role     = strtolower($_POST['role'] ?? 'pasien');
+    // Mapping role bahasa Indonesia → key internal
+    $roleMap  = ['mahasiswa'=>'pasien','dosen'=>'pasien','staff'=>'pasien','pasien'=>'pasien','dokter'=>'dokter','admin'=>'admin'];
+    $roleKey  = $roleMap[$role] ?? 'pasien';
+
+    if (!$email || !$password || !$nama) {
+        $_SESSION['flash_error'] = 'Nama, email, dan password wajib diisi.';
+        header('Location: register.php');
+        exit;
+    }
+
+    // Cek email sudah dipakai (hardcoded atau reg_users)
+    $hardcoded = ['admin@polibatam.ac.id','dokter@polibatam.ac.id','pasien@polibatam.ac.id'];
+    $regUsers  = $_SESSION['reg_users'] ?? [];
+    if (in_array($email, $hardcoded) || isset($regUsers[$email])) {
+        $_SESSION['flash_error'] = 'Email sudah terdaftar. Silakan gunakan email lain.';
+        header('Location: register.php');
+        exit;
+    }
+
+    $_SESSION['reg_users'][$email] = [
+        'password' => $password,
+        'role'     => $roleKey,
+        'name'     => $nama,
+    ];
+
+    $_SESSION['flash_success'] = 'Pendaftaran berhasil! Silakan login dengan akun Anda.';
     header('Location: login.php');
     exit;
 }
+
+$flashError   = $_SESSION['flash_error'] ?? '';
+$flashSuccess = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 
 $pageTitle = 'Daftar Akun — Klinik Digital Polibatam';
 include 'includes/head.php';
@@ -44,21 +74,28 @@ include 'includes/head.php';
       <h2>Buat Akun</h2>
       <p class="sub">Isi data diri Anda dengan benar</p>
 
+      <?php if ($flashError): ?>
+        <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($flashError) ?></div>
+      <?php endif; ?>
+      <?php if ($flashSuccess): ?>
+        <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($flashSuccess) ?></div>
+      <?php endif; ?>
+
       <form method="post" action="register.php">
         <div class="form-row">
           <div class="form-group">
-            <label class="form-label">Nama Lengkap</label>
+            <label class="form-label">Nama Lengkap *</label>
             <div class="input-wrap"><i class="pre fa-solid fa-user"></i><input type="text" name="nama" class="form-control" placeholder="Nama lengkap" required></div>
           </div>
           <div class="form-group">
             <label class="form-label">NIM / NIP / ID Staff</label>
-            <div class="input-wrap"><i class="pre fa-solid fa-id-card"></i><input type="text" name="nim" class="form-control" placeholder="Nomor identitas" required></div>
+            <div class="input-wrap"><i class="pre fa-solid fa-id-card"></i><input type="text" name="nim" class="form-control" placeholder="Nomor identitas"></div>
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Tanggal Lahir</label>
-            <input type="date" name="tgl_lahir" class="form-control" required>
+            <input type="date" name="tgl_lahir" class="form-control">
           </div>
           <div class="form-group">
             <label class="form-label">Jenis Kelamin</label>
@@ -71,7 +108,7 @@ include 'includes/head.php';
             <div class="input-wrap"><i class="pre fa-solid fa-phone"></i><input type="tel" name="hp" class="form-control" placeholder="08xx..."></div>
           </div>
           <div class="form-group">
-            <label class="form-label">Email Kampus</label>
+            <label class="form-label">Email Kampus *</label>
             <div class="input-wrap"><i class="pre fa-solid fa-envelope"></i><input type="email" name="email" class="form-control" placeholder="@std.polibatam.ac.id" required></div>
           </div>
         </div>
@@ -79,7 +116,9 @@ include 'includes/head.php';
           <div class="form-group">
             <label class="form-label">Role</label>
             <select name="role" class="form-control" id="reg-role" onchange="updateRegFields()">
-              <option>Mahasiswa</option><option>Dosen</option><option>Staff</option>
+              <option value="mahasiswa">Mahasiswa</option>
+              <option value="dosen">Dosen</option>
+              <option value="staff">Staff</option>
             </select>
           </div>
           <div class="form-group">
@@ -102,8 +141,8 @@ include 'includes/head.php';
             </select>
           </div>
           <div class="form-group">
-            <label class="form-label">Password</label>
-            <div class="input-wrap"><i class="pre fa-solid fa-lock"></i><input type="password" name="password" class="form-control" placeholder="Min. 8 karakter" required minlength="8"></div>
+            <label class="form-label">Password *</label>
+            <div class="input-wrap"><i class="pre fa-solid fa-lock"></i><input type="password" name="password" class="form-control" placeholder="Min. 6 karakter" required minlength="6"></div>
           </div>
         </div>
         <button type="submit" class="btn btn-primary btn-w-full" style="margin-top:4px;">
@@ -122,13 +161,13 @@ include 'includes/head.php';
 <script>
 function updateRegFields() {
   const role = document.getElementById('reg-role')?.value;
-  const lbl = document.getElementById('reg-jabatan-label');
-  const sel = document.getElementById('reg-jabatan-select');
+  const lbl  = document.getElementById('reg-jabatan-label');
+  const sel  = document.getElementById('reg-jabatan-select');
   if (!lbl || !sel) return;
-  if (role === 'Mahasiswa') {
+  if (role === 'mahasiswa') {
     lbl.textContent = 'Semester';
     sel.innerHTML = [1,2,3,4,5,6].map(s=>`<option>Semester ${s}</option>`).join('');
-  } else if (role === 'Dosen') {
+  } else if (role === 'dosen') {
     lbl.textContent = 'Status Dosen';
     sel.innerHTML = '<option>Dosen Tetap</option><option>Dosen LB</option>';
   } else {

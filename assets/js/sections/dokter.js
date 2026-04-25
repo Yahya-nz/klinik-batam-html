@@ -1,3 +1,5 @@
+let _editDokterId = null;
+
 function renderDataDokter() {
   return `
   <div class="section-header">
@@ -19,8 +21,8 @@ function renderDataDokter() {
         <div class="detail-field"><label>Jadwal</label><div class="val">${d.jadwal}</div></div>
         <div class="detail-field"><label>Ruangan</label><div class="val">${d.ruangan}</div></div>
         <div style="display:flex;gap:8px;margin-top:12px;">
-          <button class="btn btn-sm btn-outline" style="flex:1" onclick="showToast('Edit dokter','info')"><i class="fa-solid fa-pen"></i> Edit</button>
-          <button class="btn btn-sm btn-secondary" style="flex:1" onclick="showToast('Jadwal dikelola','info')"><i class="fa-solid fa-calendar"></i> Jadwal</button>
+          <button class="btn btn-sm btn-outline" style="flex:1" onclick="openFormDokter('${d.id}')"><i class="fa-solid fa-pen"></i> Edit</button>
+          <button class="btn btn-sm btn-danger" style="flex:1" onclick="hapusDokter('${d.id}')"><i class="fa-solid fa-trash"></i> Hapus</button>
         </div>
       </div>
     </div>`).join('')}
@@ -29,7 +31,7 @@ function renderDataDokter() {
     <div class="card-header"><h3><i class="fa-solid fa-table-list"></i>Tabel Dokter</h3></div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>Nama Dokter</th><th>Spesialis</th><th>Jadwal</th><th>Ruangan</th><th>Status</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>ID</th><th>Nama Dokter</th><th>Spesialis</th><th>Jadwal</th><th>Ruangan</th><th>SIP</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>
           ${dataDokter.map(d=>`<tr>
             <td><span class="badge badge-muted">${d.id}</span></td>
@@ -37,10 +39,11 @@ function renderDataDokter() {
             <td>${d.spesialis}</td>
             <td>${d.jadwal}</td>
             <td>${d.ruangan}</td>
+            <td>${d.sip||'-'}</td>
             <td><span class="badge badge-success">${d.status}</span></td>
             <td>
-              <button class="btn btn-xs btn-outline" onclick="showToast('Edit dokter','info')"><i class="fa-solid fa-pen"></i></button>
-              <button class="btn btn-xs btn-danger" onclick="showToast('Hapus dokter','error')"><i class="fa-solid fa-trash"></i></button>
+              <button class="btn btn-xs btn-outline" onclick="openFormDokter('${d.id}')"><i class="fa-solid fa-pen"></i></button>
+              <button class="btn btn-xs btn-danger" onclick="hapusDokter('${d.id}')"><i class="fa-solid fa-trash"></i></button>
             </td>
           </tr>`).join('')}
         </tbody>
@@ -49,22 +52,97 @@ function renderDataDokter() {
   </div>`;
 }
 
-function openFormDokter() {
-  openModal('Tambah Data Dokter', `
+function openFormDokter(id = null) {
+  _editDokterId = id;
+  const d = id ? dataDokter.find(x => x.id === id) : {};
+  openModal(id ? 'Edit Data Dokter' : 'Tambah Data Dokter', `
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Nama Dokter</label><div class="input-wrap"><i class="pre fa-solid fa-user-doctor"></i><input type="text" class="form-control" placeholder="dr. Nama Lengkap"></div></div>
-      <div class="form-group"><label class="form-label">Spesialis</label><select class="form-control"><option>Umum</option><option>Gigi</option><option>THT</option><option>Kulit</option></select></div>
+      <div class="form-group">
+        <label class="form-label">Nama Dokter *</label>
+        <div class="input-wrap"><i class="pre fa-solid fa-user-doctor"></i><input type="text" id="frm-d-nama" class="form-control" placeholder="dr. Nama Lengkap" value="${d.nama||''}"></div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Spesialis</label>
+        <select id="frm-d-spesialis" class="form-control">
+          ${['Umum','Gigi','THT','Kulit','Anak','Kandungan'].map(o=>`<option ${d.spesialis===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Hari Praktik</label><select class="form-control"><option>Sen-Rab</option><option>Sel-Kam</option><option>Rab-Jum</option></select></div>
-      <div class="form-group"><label class="form-label">Jam Praktik</label><select class="form-control"><option>08:00 - 12:00</option><option>13:00 - 17:00</option></select></div>
+      <div class="form-group">
+        <label class="form-label">Hari Praktik</label>
+        <select id="frm-d-hari" class="form-control">
+          ${['Sen-Rab','Sel-Kam','Rab-Jum','Sen-Jum','Sen-Sel'].map(o=>`<option ${d.hari===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Jam Praktik</label>
+        <select id="frm-d-jam" class="form-control">
+          ${['08:00 - 12:00','13:00 - 17:00','08:00 - 17:00'].map(o=>`<option ${d.jam===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
     </div>
     <div class="form-row">
-      <div class="form-group"><label class="form-label">Ruangan</label><select class="form-control"><option>Ruang 1</option><option>Ruang 2</option><option>Ruang 3</option></select></div>
-      <div class="form-group"><label class="form-label">No SIP</label><input type="text" class="form-control" placeholder="Nomor SIP dokter"></div>
+      <div class="form-group">
+        <label class="form-label">Ruangan</label>
+        <select id="frm-d-ruangan" class="form-control">
+          ${['Ruang 1','Ruang 2','Ruang 3','Ruang 4'].map(o=>`<option ${d.ruangan===o?'selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">No SIP</label>
+        <div class="input-wrap"><i class="pre fa-solid fa-id-badge"></i><input type="text" id="frm-d-sip" class="form-control" placeholder="Nomor SIP dokter" value="${d.sip||''}"></div>
+      </div>
     </div>
   `, [
     {label:'Batal', cls:'btn-secondary', action:'closeModal()'},
-    {label:'<i class="fa-solid fa-save"></i> Simpan', cls:'btn-primary', action:"showToast('Dokter berhasil ditambahkan','success');closeModal()"}
+    {label:'<i class="fa-solid fa-save"></i> Simpan', cls:'btn-primary', action:'saveFormDokter()'}
   ]);
+}
+
+function saveFormDokter() {
+  const nama = val('frm-d-nama');
+  if (!nama) { showToast('Nama dokter wajib diisi!', 'error'); return; }
+
+  const hari = val('frm-d-hari');
+  const jam  = val('frm-d-jam');
+  const data = {
+    nama,
+    spesialis: val('frm-d-spesialis'),
+    hari,
+    jam,
+    jadwal: `${hari} ${jam}`,
+    ruangan: val('frm-d-ruangan'),
+    sip: val('frm-d-sip'),
+    status: 'Aktif',
+  };
+
+  if (_editDokterId) {
+    const idx = dataDokter.findIndex(x => x.id === _editDokterId);
+    dataDokter[idx] = { ...dataDokter[idx], ...data };
+    showToast('Data dokter berhasil diperbarui', 'success');
+  } else {
+    dataDokter.push({ id: genId('D', dataDokter), ...data });
+    showToast('Dokter berhasil ditambahkan', 'success');
+  }
+  closeModal();
+  renderSection('data-dokter');
+}
+
+function hapusDokter(id) {
+  const d = dataDokter.find(x => x.id === id);
+  openModal('Hapus Dokter', `
+    <p style="text-align:center;padding:12px 0;">Yakin ingin menghapus data <strong>${d.nama}</strong>?</p>
+    <p style="text-align:center;font-size:12px;color:var(--text-light);">Tindakan ini tidak dapat dibatalkan.</p>
+  `, [
+    {label:'Batal', cls:'btn-secondary', action:'closeModal()'},
+    {label:'<i class="fa-solid fa-trash"></i> Hapus', cls:'btn-danger', action:`_konfirmasiHapusDokter('${id}')`}
+  ]);
+}
+
+function _konfirmasiHapusDokter(id) {
+  dataDokter = dataDokter.filter(x => x.id !== id);
+  closeModal();
+  showToast('Dokter berhasil dihapus', 'info');
+  renderSection('data-dokter');
 }

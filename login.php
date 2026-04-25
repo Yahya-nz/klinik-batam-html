@@ -7,8 +7,9 @@ if (!empty($_SESSION['role'])) {
     exit;
 }
 
-$flashError = $_SESSION['flash_error'] ?? '';
-unset($_SESSION['flash_error']);
+$flashError   = $_SESSION['flash_error'] ?? '';
+$flashSuccess = $_SESSION['flash_success'] ?? '';
+unset($_SESSION['flash_error'], $_SESSION['flash_success']);
 
 $pageTitle = 'Login — Klinik Digital Polibatam';
 include 'includes/head.php';
@@ -40,6 +41,9 @@ include 'includes/head.php';
 
       <?php if ($flashError): ?>
         <div class="alert alert-danger"><i class="fa-solid fa-circle-exclamation"></i> <?= htmlspecialchars($flashError) ?></div>
+      <?php endif; ?>
+      <?php if ($flashSuccess): ?>
+        <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($flashSuccess) ?></div>
       <?php endif; ?>
 
       <form method="post" action="actions/login.php">

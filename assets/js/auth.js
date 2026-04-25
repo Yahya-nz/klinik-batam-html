@@ -1,3 +1,4 @@
+// roleInfo diisi saat initApp — nama diambil dari session PHP (currentName)
 const roleInfo = {
   admin:  { name:'Ahmad Admin',      label:'Admin',     chip:'role-admin' },
   dokter: { name:'dr. Sarah Amalia', label:'Dokter',    chip:'role-dokter' },
@@ -5,7 +6,12 @@ const roleInfo = {
 };
 
 function initApp() {
-  const info = roleInfo[currentRole];
+  // Pakai nama dari session PHP jika tersedia
+  if (typeof currentName !== 'undefined' && currentName) {
+    roleInfo[currentRole] = { ...roleInfo[currentRole], name: currentName };
+  }
+
+  const info = roleInfo[currentRole] || { name: currentName || 'Pengguna', label: currentRole, chip: 'role-pasien' };
   document.getElementById('sidebar-username').textContent = info.name;
   document.getElementById('sidebar-role-lbl').textContent = info.label;
   const chip = document.getElementById('topbar-role-chip');
@@ -17,21 +23,4 @@ function initApp() {
 
 function logout() {
   window.location.href = 'logout.php';
-}
-
-function updateRegFields() {
-  const role = document.getElementById('reg-role')?.value;
-  const lbl = document.getElementById('reg-jabatan-label');
-  const sel = document.getElementById('reg-jabatan-select');
-  if (!lbl || !sel) return;
-  if (role === 'Mahasiswa') {
-    lbl.textContent = 'Semester';
-    sel.innerHTML = [1,2,3,4,5,6].map(s=>`<option>Semester ${s}</option>`).join('');
-  } else if (role === 'Dosen') {
-    lbl.textContent = 'Status Dosen';
-    sel.innerHTML = '<option>Dosen Tetap</option><option>Dosen LB</option>';
-  } else {
-    lbl.textContent = 'Jabatan';
-    sel.innerHTML = '<option>Administrasi</option><option>Keuangan</option><option>Teknisi</option><option>Keamanan</option>';
-  }
 }
