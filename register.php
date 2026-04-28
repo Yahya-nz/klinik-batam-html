@@ -6,41 +6,7 @@ if (!empty($_SESSION['role'])) {
     exit;
 }
 
-// Proses form register (simpan ke session — tanpa DB)
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $nama     = trim($_POST['nama'] ?? '');
-    $role     = strtolower($_POST['role'] ?? 'pasien');
-    // Mapping role bahasa Indonesia → key internal
-    $roleMap  = ['mahasiswa'=>'pasien','dosen'=>'pasien','staff'=>'pasien','pasien'=>'pasien','dokter'=>'dokter','admin'=>'admin'];
-    $roleKey  = $roleMap[$role] ?? 'pasien';
-
-    if (!$email || !$password || !$nama) {
-        $_SESSION['flash_error'] = 'Nama, email, dan password wajib diisi.';
-        header('Location: register.php');
-        exit;
-    }
-
-    // Cek email sudah dipakai (hardcoded atau reg_users)
-    $hardcoded = ['admin@polibatam.ac.id','dokter@polibatam.ac.id','pasien@polibatam.ac.id'];
-    $regUsers  = $_SESSION['reg_users'] ?? [];
-    if (in_array($email, $hardcoded) || isset($regUsers[$email])) {
-        $_SESSION['flash_error'] = 'Email sudah terdaftar. Silakan gunakan email lain.';
-        header('Location: register.php');
-        exit;
-    }
-
-    $_SESSION['reg_users'][$email] = [
-        'password' => $password,
-        'role'     => $roleKey,
-        'name'     => $nama,
-    ];
-
-    $_SESSION['flash_success'] = 'Pendaftaran berhasil! Silakan login dengan akun Anda.';
-    header('Location: login.php');
-    exit;
-}
+// Proses form register ditangani oleh actions/register.php
 
 $flashError   = $_SESSION['flash_error'] ?? '';
 $flashSuccess = $_SESSION['flash_success'] ?? '';
@@ -81,7 +47,7 @@ include 'includes/head.php';
         <div class="alert alert-success"><i class="fa-solid fa-circle-check"></i> <?= htmlspecialchars($flashSuccess) ?></div>
       <?php endif; ?>
 
-      <form method="post" action="register.php">
+      <form method="post" action="actions/register.php">
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Nama Lengkap *</label>

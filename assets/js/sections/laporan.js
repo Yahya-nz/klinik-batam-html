@@ -1,5 +1,10 @@
-function renderLaporan() {
-  return `
+async function renderLaporan() {
+  const body = document.getElementById('content-body');
+  let stats = {};
+  try {
+    stats = await apiGet('stats.php', { action: 'get' });
+  } catch (_) {}
+  body.innerHTML = `
   <div class="section-header">
     <div><h2>Laporan</h2><p>Statistik dan laporan kunjungan klinik</p></div>
     <div class="section-header-actions">
@@ -8,14 +13,14 @@ function renderLaporan() {
     </div>
   </div>
   <div class="stats-row">
-    <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-users"></i></div><div><div class="stat-val">528</div><div class="stat-lbl">Total Pasien</div></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-stethoscope"></i></div><div><div class="stat-val">530</div><div class="stat-lbl">Total Kunjungan</div></div></div>
-    <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-prescription"></i></div><div><div class="stat-val">412</div><div class="stat-lbl">Resep Dikeluarkan</div></div></div>
-    <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-pills"></i></div><div><div class="stat-val">6</div><div class="stat-lbl">Jenis Obat</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-users"></i></div><div><div class="stat-val">${stats.total_pasien??'-'}</div><div class="stat-lbl">Total Pasien</div></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-stethoscope"></i></div><div><div class="stat-val">${stats.total_rekam??'-'}</div><div class="stat-lbl">Kunjungan Bulan Ini</div></div></div>
+    <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-user-doctor"></i></div><div><div class="stat-val">${stats.total_dokter??'-'}</div><div class="stat-lbl">Dokter Aktif</div></div></div>
+    <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-money-bill"></i></div><div><div class="stat-val">${fmtRupiah(stats.total_transaksi||0)}</div><div class="stat-lbl">Pendapatan Bulan Ini</div></div></div>
   </div>
   <div class="grid-2" style="margin-top:16px;">
     <div class="card">
-      <div class="card-header"><h3><i class="fa-solid fa-chart-bar"></i>Kunjungan Per Bulan</h3></div>
+      <div class="card-header"><h3><i class="fa-solid fa-chart-bar"></i> Kunjungan Per Bulan</h3></div>
       <div class="card-body">
         <div class="bar-chart">
           ${[55,70,60,85,75,90,65,80,45,70,60,95].map(v=>`<div class="bar" style="height:${v}%" data-val="${v}"></div>`).join('')}
@@ -26,7 +31,7 @@ function renderLaporan() {
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><h3><i class="fa-solid fa-stethoscope"></i>Distribusi Diagnosa</h3></div>
+      <div class="card-header"><h3><i class="fa-solid fa-stethoscope"></i> Distribusi Diagnosa</h3></div>
       <div class="card-body">
         ${[['ISPA / Flu','38%','var(--c1)'],['Gangguan Pencernaan','22%','var(--c2)'],['Cedera Ringan','15%','var(--c3)'],['Sakit Kepala','13%','var(--c4)'],['Lainnya','12%','var(--c5)']].map(([l,p,c])=>`
         <div class="progress-row">
@@ -36,30 +41,19 @@ function renderLaporan() {
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><h3><i class="fa-solid fa-user-doctor"></i>Kunjungan Per Dokter</h3></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Dokter</th><th>Spesialis</th><th>Kunjungan</th><th>Persen</th></tr></thead>
-          <tbody>
-            <tr><td><strong>dr. Sarah Amalia</strong></td><td>Umum</td><td>248</td><td><span class="badge badge-success">47%</span></td></tr>
-            <tr><td><strong>dr. Rizal Hamdan</strong></td><td>Gigi</td><td>162</td><td><span class="badge badge-info">31%</span></td></tr>
-            <tr><td><strong>dr. Maya Sari</strong></td><td>Umum</td><td>120</td><td><span class="badge badge-warning">22%</span></td></tr>
-          </tbody>
-        </table>
+      <div class="card-header"><h3><i class="fa-solid fa-pills"></i> Status Stok Kritis</h3></div>
+      <div class="card-body">
+        <div style="font-size:32px;font-weight:700;color:${(stats.stok_menipis||0)>0?'var(--danger)':'var(--success)'};padding:12px 0;">${stats.stok_menipis??0}</div>
+        <p style="color:var(--text-light);font-size:13px;">Jenis obat dengan stok di bawah 20 unit</p>
+        <button class="btn btn-outline btn-sm" onclick="renderSection('stok-obat')"><i class="fa-solid fa-arrow-right"></i> Kelola Stok</button>
       </div>
     </div>
     <div class="card">
-      <div class="card-header"><h3><i class="fa-solid fa-pills"></i>Obat Paling Sering Diresepkan</h3></div>
-      <div class="table-wrap">
-        <table>
-          <thead><tr><th>Nama Obat</th><th>Satuan</th><th>Dikeluarkan</th></tr></thead>
-          <tbody>
-            <tr><td><strong>Paracetamol</strong></td><td>Tablet</td><td>1.240</td></tr>
-            <tr><td><strong>Amoxicillin</strong></td><td>Kapsul</td><td>820</td></tr>
-            <tr><td><strong>Vitamin C</strong></td><td>Tablet</td><td>650</td></tr>
-            <tr><td><strong>Ibuprofen</strong></td><td>Tablet</td><td>430</td></tr>
-          </tbody>
-        </table>
+      <div class="card-header"><h3><i class="fa-solid fa-calendar-check"></i> Booking Menunggu</h3></div>
+      <div class="card-body">
+        <div style="font-size:32px;font-weight:700;color:var(--warning);padding:12px 0;">${stats.booking_menunggu??0}</div>
+        <p style="color:var(--text-light);font-size:13px;">Booking pasien yang menunggu konfirmasi</p>
+        <button class="btn btn-outline btn-sm" onclick="renderSection('booking')"><i class="fa-solid fa-arrow-right"></i> Kelola Booking</button>
       </div>
     </div>
   </div>`;

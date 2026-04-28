@@ -28,12 +28,22 @@ const sectionRenderers = {
   'riwayat':     renderRiwayat,
 };
 
-function renderSection(key) {
+async function renderSection(key) {
   activeMenu = key;
   buildSidebar();
   const [title, sub] = sectionTitles[key] || ['', ''];
   document.getElementById('topbar-title').textContent = title;
   document.getElementById('topbar-sub').textContent = sub;
   const body = document.getElementById('content-body');
-  body.innerHTML = (sectionRenderers[key] || (() => '<p>Halaman tidak ditemukan.</p>'))();
+  showLoading(body);
+  try {
+    const renderer = sectionRenderers[key];
+    if (renderer) {
+      await renderer();
+    } else {
+      body.innerHTML = '<p style="padding:20px">Halaman tidak ditemukan.</p>';
+    }
+  } catch (e) {
+    body.innerHTML = `<div style="padding:20px;color:var(--danger)"><i class="fa-solid fa-triangle-exclamation"></i> Gagal memuat: ${e.message}</div>`;
+  }
 }

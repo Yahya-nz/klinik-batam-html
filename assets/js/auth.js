@@ -1,24 +1,32 @@
-// roleInfo diisi saat initApp — nama diambil dari session PHP (currentName)
 const roleInfo = {
-  admin:  { name:'Ahmad Admin',      label:'Admin',     chip:'role-admin' },
-  dokter: { name:'dr. Sarah Amalia', label:'Dokter',    chip:'role-dokter' },
-  pasien: { name:'Andi Pratama',     label:'Mahasiswa', chip:'role-pasien' },
+  admin:  { label:'Admin',     chip:'role-admin' },
+  dokter: { label:'Dokter',    chip:'role-dokter' },
+  pasien: { label:'Mahasiswa', chip:'role-pasien' },
 };
 
-function initApp() {
-  // Pakai nama dari session PHP jika tersedia
-  if (typeof currentName !== 'undefined' && currentName) {
-    roleInfo[currentRole] = { ...roleInfo[currentRole], name: currentName };
-  }
-
-  const info = roleInfo[currentRole] || { name: currentName || 'Pengguna', label: currentRole, chip: 'role-pasien' };
-  document.getElementById('sidebar-username').textContent = info.name;
+async function initApp() {
+  const info = roleInfo[currentRole] || { label: currentRole, chip: 'role-pasien' };
+  document.getElementById('sidebar-username').textContent = currentName || 'Pengguna';
   document.getElementById('sidebar-role-lbl').textContent = info.label;
   const chip = document.getElementById('topbar-role-chip');
   chip.textContent = info.label;
   chip.className = 'role-chip ' + info.chip;
   buildSidebar();
   renderSection('dashboard');
+
+  // Preload reference data (non-blocking, best-effort)
+  try {
+    const [pasien, dokter, obat] = await Promise.all([
+      apiGet('pasien.php', { action: 'list' }),
+      apiGet('dokter.php', { action: 'list' }),
+      apiGet('obat.php',   { action: 'list' }),
+    ]);
+    _pasienList = pasien || [];
+    _dokterList = dokter || [];
+    _obatList   = obat   || [];
+  } catch (_) {
+    // DB not available yet — reference lists stay empty, dropdowns degrade gracefully
+  }
 }
 
 function logout() {

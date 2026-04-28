@@ -1,9 +1,17 @@
 let _editObatId = null;
+let _obatData   = [];
 
-function renderStokObat() {
-  const kritis = dataObat.filter(o => o.stok < 10).length;
-  const minim  = dataObat.filter(o => o.stok >= 10 && o.stok < 30).length;
-  const aman   = dataObat.filter(o => o.stok >= 30).length;
+async function renderStokObat() {
+  const body = document.getElementById('content-body');
+  _obatData = await apiGet('obat.php', { action: 'list' });
+  _obatList = _obatData;
+  body.innerHTML = _buildStokPage(_obatData);
+}
+
+function _buildStokPage(data) {
+  const kritis = data.filter(o => o.stok < 10).length;
+  const minim  = data.filter(o => o.stok >= 10 && o.stok < 30).length;
+  const aman   = data.filter(o => o.stok >= 30).length;
   return `
   <div class="section-header">
     <div><h2>Stok Obat</h2><p>Monitoring dan kelola persediaan obat klinik</p></div>
@@ -12,7 +20,7 @@ function renderStokObat() {
     </div>
   </div>
   <div class="stats-row" style="grid-template-columns:repeat(4,1fr);margin-bottom:16px;">
-    <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-box"></i></div><div><div class="stat-val">${dataObat.length}</div><div class="stat-lbl">Jenis Obat</div></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fa-solid fa-box"></i></div><div><div class="stat-val">${data.length}</div><div class="stat-lbl">Jenis Obat</div></div></div>
     <div class="stat-card"><div class="stat-icon green"><i class="fa-solid fa-check-circle"></i></div><div><div class="stat-val">${aman}</div><div class="stat-lbl">Stok Aman</div></div></div>
     <div class="stat-card"><div class="stat-icon orange"><i class="fa-solid fa-exclamation-circle"></i></div><div><div class="stat-val">${minim}</div><div class="stat-lbl">Stok Minim</div></div></div>
     <div class="stat-card"><div class="stat-icon red"><i class="fa-solid fa-times-circle"></i></div><div><div class="stat-val">${kritis}</div><div class="stat-lbl">Stok Kritis</div></div></div>
@@ -20,23 +28,24 @@ function renderStokObat() {
   <div class="card">
     <div class="table-wrap">
       <table>
-        <thead><tr><th>ID</th><th>Nama Obat</th><th>Fungsi</th><th>Stok</th><th>Satuan</th><th>Kadaluarsa</th><th>Status</th><th>Aksi</th></tr></thead>
+        <thead><tr><th>ID</th><th>Nama Obat</th><th>Kategori</th><th>Stok</th><th>Satuan</th><th>Harga</th><th>Kadaluarsa</th><th>Status</th><th>Aksi</th></tr></thead>
         <tbody>
-          ${dataObat.map(o => {
+          ${data.map(o => {
             const cls = o.stok < 10 ? 'badge-danger' : o.stok < 30 ? 'badge-warning' : 'badge-success';
             const lbl = o.stok < 10 ? 'Kritis' : o.stok < 30 ? 'Minim' : 'Aman';
             return `<tr>
-              <td><span class="badge badge-muted">${o.id}</span></td>
+              <td><span class="badge badge-muted">${o.kode}</span></td>
               <td><strong>${o.nama}</strong></td>
-              <td>${o.fungsi}</td>
+              <td>${o.kategori||'-'}</td>
               <td><strong style="color:${o.stok<10?'var(--danger)':o.stok<30?'var(--warning)':'var(--success)'};">${o.stok}</strong></td>
               <td>${o.satuan}</td>
-              <td>${o.kadaluarsa}</td>
+              <td>${o.harga ? fmtRupiah(o.harga) : '-'}</td>
+              <td>${o.kadaluarsa||'-'}</td>
               <td><span class="badge ${cls}">${lbl}</span></td>
               <td>
-                <button class="btn btn-xs btn-outline" onclick="openUpdateStok('${o.id}')"><i class="fa-solid fa-arrows-rotate"></i> Update</button>
-                <button class="btn btn-xs btn-secondary" onclick="openFormObat('${o.id}')"><i class="fa-solid fa-pen"></i></button>
-                <button class="btn btn-xs btn-danger" onclick="hapusObat('${o.id}')"><i class="fa-solid fa-trash"></i></button>
+                <button class="btn btn-xs btn-outline" onclick="openUpdateStok(${o.id})"><i class="fa-solid fa-arrows-rotate"></i> Update</button>
+                <button class="btn btn-xs btn-secondary" onclick="openFormObat(${o.id})"><i class="fa-solid fa-pen"></i></button>
+                <button class="btn btn-xs btn-danger" onclick="hapusObat(${o.id},'${o.nama.replace(/'/g,"\\'")}')"><i class="fa-solid fa-trash"></i></button>
               </td>
             </tr>`;
           }).join('')}
@@ -46,24 +55,29 @@ function renderStokObat() {
   </div>`;
 }
 
-function openFormObat(id = null) {
+async function openFormObat(id = null) {
   _editObatId = id;
-  const o = id ? dataObat.find(x => x.id === id) : {};
+  let o = { nama:'', kategori:'', stok:0, satuan:'Tablet', harga:0, kadaluarsa:'' };
+  if (id) {
+    try { o = await apiGet('obat.php', { action: 'get', id }); } catch (_) {}
+  }
   openModal(id ? 'Edit Data Obat' : 'Tambah Data Obat', `
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Nama Obat *</label>
-        <div class="input-wrap"><i class="pre fa-solid fa-pills"></i><input type="text" id="frm-o-nama" class="form-control" placeholder="Nama obat" value="${o.nama||''}"></div>
+        <div class="input-wrap"><i class="pre fa-solid fa-pills"></i><input type="text" id="frm-o-nama" class="form-control" value="${o.nama||''}"></div>
       </div>
       <div class="form-group">
-        <label class="form-label">Fungsi</label>
-        <input type="text" id="frm-o-fungsi" class="form-control" placeholder="Analgesik, Antibiotik..." value="${o.fungsi||''}">
+        <label class="form-label">Kategori</label>
+        <select id="frm-o-kategori" class="form-control">
+          ${['Analgesik','Antibiotik','Vitamin','Antasida','Antihistamin','Lainnya'].map(s=>`<option ${o.kategori===s?'selected':''}>${s}</option>`).join('')}
+        </select>
       </div>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Stok</label>
-        <input type="number" id="frm-o-stok" class="form-control" placeholder="Jumlah" min="0" value="${o.stok ?? ''}">
+        <input type="number" id="frm-o-stok" class="form-control" min="0" value="${o.stok??0}">
       </div>
       <div class="form-group">
         <label class="form-label">Satuan</label>
@@ -74,12 +88,12 @@ function openFormObat(id = null) {
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label">Tanggal Kadaluarsa</label>
-        <input type="date" id="frm-o-kadaluarsa" class="form-control" value="${o.kadaluarsa||''}">
+        <label class="form-label">Harga (Rp)</label>
+        <input type="number" id="frm-o-harga" class="form-control" min="0" value="${o.harga||0}">
       </div>
       <div class="form-group">
-        <label class="form-label">Dosis</label>
-        <input type="text" id="frm-o-dosis" class="form-control" placeholder="Contoh: 500mg" value="${o.dosis||''}">
+        <label class="form-label">Tanggal Kadaluarsa</label>
+        <input type="date" id="frm-o-kadaluarsa" class="form-control" value="${o.kadaluarsa||''}">
       </div>
     </div>
   `, [
@@ -88,79 +102,75 @@ function openFormObat(id = null) {
   ]);
 }
 
-function saveFormObat() {
+async function saveFormObat() {
   const nama = val('frm-o-nama');
   if (!nama) { showToast('Nama obat wajib diisi!', 'error'); return; }
-
-  const data = {
-    nama,
-    fungsi:     val('frm-o-fungsi'),
-    stok:       parseInt(val('frm-o-stok')) || 0,
-    satuan:     val('frm-o-satuan'),
+  const payload = {
+    id: _editObatId || undefined,
+    nama, kategori: val('frm-o-kategori'),
+    stok: parseInt(val('frm-o-stok'))||0,
+    satuan: val('frm-o-satuan'),
+    harga: parseInt(val('frm-o-harga'))||0,
     kadaluarsa: val('frm-o-kadaluarsa'),
-    dosis:      val('frm-o-dosis'),
   };
-
-  if (_editObatId) {
-    const idx = dataObat.findIndex(x => x.id === _editObatId);
-    dataObat[idx] = { ...dataObat[idx], ...data };
-    showToast('Data obat berhasil diperbarui', 'success');
-  } else {
-    dataObat.push({ id: genId('OB', dataObat), ...data });
-    showToast('Obat berhasil ditambahkan', 'success');
-  }
-  closeModal();
-  renderSection('stok-obat');
+  try {
+    const res = await apiPost('obat.php', _editObatId ? 'update' : 'create', payload);
+    showToast(res.msg, 'success');
+    closeModal();
+    renderSection('stok-obat');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
 function openUpdateStok(id) {
-  const o = dataObat.find(x => x.id === id);
+  const o = _obatData.find(x => x.id === id) || {};
   openModal('Update Stok — ' + o.nama, `
     <div class="form-group">
       <label class="form-label">Stok Saat Ini</label>
-      <div class="input-wrap"><i class="pre fa-solid fa-box"></i><input type="number" class="form-control" id="stok-val" value="${o.stok}" min="0"></div>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Tambah / Kurang Stok</label>
-      <div style="display:flex;gap:8px;">
-        <button class="btn btn-success" onclick="document.getElementById('stok-val').value=parseInt(document.getElementById('stok-val').value||0)+10">+10</button>
-        <button class="btn btn-success" onclick="document.getElementById('stok-val').value=parseInt(document.getElementById('stok-val').value||0)+50">+50</button>
-        <button class="btn btn-danger" onclick="document.getElementById('stok-val').value=Math.max(0,parseInt(document.getElementById('stok-val').value||0)-10)">-10</button>
+      <div class="input-wrap"><i class="pre fa-solid fa-box"></i>
+        <input type="number" class="form-control" id="stok-new-val" value="${o.stok}" min="0">
       </div>
     </div>
     <div class="form-group">
-      <label class="form-label">Catatan</label>
-      <input type="text" id="stok-catatan" class="form-control" placeholder="Penerimaan barang, pemakaian, dll">
+      <label class="form-label">Tambah / Kurang Cepat</label>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-success" onclick="document.getElementById('stok-new-val').value=Math.max(0,parseInt(document.getElementById('stok-new-val').value||0)+10)">+10</button>
+        <button class="btn btn-success" onclick="document.getElementById('stok-new-val').value=Math.max(0,parseInt(document.getElementById('stok-new-val').value||0)+50)">+50</button>
+        <button class="btn btn-danger" onclick="document.getElementById('stok-new-val').value=Math.max(0,parseInt(document.getElementById('stok-new-val').value||0)-10)">-10</button>
+      </div>
     </div>
   `, [
     {label:'Batal', cls:'btn-secondary', action:'closeModal()'},
-    {label:'<i class="fa-solid fa-save"></i> Update', cls:'btn-primary', action:`saveUpdateStok('${id}')`}
+    {label:'<i class="fa-solid fa-save"></i> Update', cls:'btn-primary', action:`saveUpdateStok(${id})`}
   ]);
 }
 
-function saveUpdateStok(id) {
-  const stokBaru = parseInt(document.getElementById('stok-val')?.value) || 0;
-  const idx = dataObat.findIndex(x => x.id === id);
-  dataObat[idx].stok = stokBaru;
-  closeModal();
-  showToast('Stok berhasil diperbarui', 'success');
-  renderSection('stok-obat');
+async function saveUpdateStok(id) {
+  const newVal = parseInt(document.getElementById('stok-new-val')?.value) || 0;
+  const o      = _obatData.find(x => x.id === id) || { stok: 0 };
+  const delta  = newVal - o.stok;
+  try {
+    const res = await apiPost('obat.php', 'update_stok', { id, delta });
+    closeModal();
+    showToast(res.msg, 'success');
+    renderSection('stok-obat');
+  } catch (e) { showToast(e.message, 'error'); }
 }
 
-function hapusObat(id) {
-  const o = dataObat.find(x => x.id === id);
+function hapusObat(id, nama) {
   openModal('Hapus Obat', `
-    <p style="text-align:center;padding:12px 0;">Yakin ingin menghapus <strong>${o.nama}</strong> dari daftar obat?</p>
+    <p style="text-align:center;padding:12px 0;">Yakin ingin menghapus <strong>${nama}</strong> dari daftar obat?</p>
     <p style="text-align:center;font-size:12px;color:var(--text-light);">Tindakan ini tidak dapat dibatalkan.</p>
   `, [
     {label:'Batal', cls:'btn-secondary', action:'closeModal()'},
-    {label:'<i class="fa-solid fa-trash"></i> Hapus', cls:'btn-danger', action:`_konfirmasiHapusObat('${id}')`}
+    {label:'<i class="fa-solid fa-trash"></i> Hapus', cls:'btn-danger', action:`_konfirmasiHapusObat(${id})`}
   ]);
 }
 
-function _konfirmasiHapusObat(id) {
-  dataObat = dataObat.filter(x => x.id !== id);
-  closeModal();
-  showToast('Obat berhasil dihapus', 'info');
-  renderSection('stok-obat');
+async function _konfirmasiHapusObat(id) {
+  try {
+    const res = await apiPost('obat.php', 'delete', { id });
+    closeModal();
+    showToast(res.msg, 'info');
+    renderSection('stok-obat');
+  } catch (e) { showToast(e.message, 'error'); }
 }

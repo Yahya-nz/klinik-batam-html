@@ -62,8 +62,9 @@ const currentRole    = <?= json_encode($role) ?>;
 const currentName    = <?= json_encode($userName) ?>;
 </script>
 
-<!-- Data dummy -->
+<!-- Core utilities -->
 <script src="assets/js/data.js"></script>
+<script src="assets/js/api.js"></script>
 
 <!-- Core modules -->
 <script src="assets/js/modal.js"></script>
